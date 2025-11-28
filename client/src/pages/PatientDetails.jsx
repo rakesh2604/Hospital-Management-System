@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -30,9 +30,12 @@ import {
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
+import { useReactToPrint } from 'react-to-print';
 import api from '../api/axios';
+import PrescriptionPrint from '../components/PrescriptionPrint';
 
 const PatientDetails = () => {
   const { id } = useParams();
@@ -58,6 +61,8 @@ const PatientDetails = () => {
   // Dialog states
   const [vitalsDialogOpen, setVitalsDialogOpen] = useState(false);
   const [prescriptionDialogOpen, setPrescriptionDialogOpen] = useState(false);
+  const [selectedPrescription, setSelectedPrescription] = useState(null);
+  const printRef = useRef();
 
   // Vitals form
   const [vitalsForm, setVitalsForm] = useState({
@@ -222,6 +227,22 @@ const PatientDetails = () => {
     newMedicines[index][field] = value;
     setPrescriptionForm({ ...prescriptionForm, medicines: newMedicines });
   };
+
+  // Print prescription handler
+  const handlePrint = useReactToPrint({
+    content: () => printRef.current,
+    documentTitle: `Prescription_${selectedPrescription?.prescriptionId}`,
+  });
+
+  const handlePrintClick = (prescription) => {
+    setSelectedPrescription(prescription);
+    // Small delay to ensure state is set before printing
+    setTimeout(() => {
+      handlePrint();
+    }, 100);
+  };
+
+  const hospitalName = localStorage.getItem('tenantId') || 'Hospital';
 
   if (loading) {
     return (
@@ -489,9 +510,25 @@ const PatientDetails = () => {
                   <Grid item xs={12} md={6} key={prescription._id}>
                     <Card variant="outlined">
                       <CardContent>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                           <Typography variant="h6">{prescription.prescriptionId}</Typography>
-                          <Chip label={formatDate(prescription.createdAt)} size="small" />
+                          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Chip label={formatDate(prescription.createdAt)} size="small" />
+                            <IconButton
+                              color="primary"
+                              onClick={() => handlePrintClick(prescription)}
+                              sx={{
+                                backgroundColor: '#1976d2',
+                                color: 'white',
+                                '&:hover': {
+                                  backgroundColor: '#1565c0',
+                                },
+                              }}
+                              size="small"
+                            >
+                              <PrintIcon />
+                            </IconButton>
+                          </Box>
                         </Box>
                         <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
                           Diagnosis
@@ -636,6 +673,16 @@ const PatientDetails = () => {
           </Box>
         )}
       </Paper>
+
+      {/* Hidden Print Component */}
+      {selectedPrescription && (
+        <PrescriptionPrint
+          ref={printRef}
+          prescription={selectedPrescription}
+          patient={patient}
+          hospitalName={hospitalName}
+        />
+      )}
     </Container>
   );
 };

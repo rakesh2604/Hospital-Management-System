@@ -18,7 +18,11 @@ const app = express();
 
 // 1. Global Middleware
 app.use(helmet()); // Security headers
-app.use(cors()); // Allow frontend access
+// CORS: Allow all origins for hackathon demo (production should restrict to specific domains)
+app.use(cors({
+  origin: '*',
+  credentials: true,
+}));
 app.use(express.json()); // Parse JSON bodies
 
 // 2. Health Check (Crucial for Deployment)
