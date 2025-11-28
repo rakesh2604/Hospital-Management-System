@@ -38,7 +38,6 @@ const register = async (req, res) => {
 
     // Get the User model from the CURRENT tenant connection
     const User = req.tenantDB.model('User', UserSchema);
-    const user = await User.create(req.body);
 
     // Check if user already exists
     const existingUser = await User.findOne({ email: email.toLowerCase() });
@@ -190,9 +189,107 @@ const getMe = async (req, res) => {
   }
 };
 
+/**
+ * Register a new staff member (only for HOSPITAL_ADMIN)
+ * Uses req.tenantDB and req.user.tenantId from the authenticated admin
+ */
+const registerStaff = async (req, res) => {
+  try {
+    // Validate required fields
+    const { firstName, lastName, email, password, role } = req.body;
+
+    if (!firstName || !lastName || !email || !password || !role) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: firstName, lastName, email, password, role',
+      });
+    }
+
+    // Validate role - only allow staff roles (not SUPER_ADMIN or HOSPITAL_ADMIN)
+    const validStaffRoles = ['DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECHNICIAN', 'RECEPTIONIST'];
+    if (!validStaffRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid role. Must be one of: ${validStaffRoles.join(', ')}`,
+      });
+    }
+
+    // Get tenantId from the authenticated admin user
+    const tenantId = req.user.tenantId;
+
+    if (!tenantId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tenant ID not found',
+      });
+    }
+
+    // Get the User model from the CURRENT tenant connection
+    const User = req.tenantDB.model('User', UserSchema);
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: 'User with this email already exists',
+      });
+    }
+
+    // Create new staff member
+    const newStaff = await User.create({
+      firstName,
+      lastName,
+      email: email.toLowerCase(),
+      password, // Will be hashed by pre-save hook
+      role,
+      tenantId,
+    });
+
+    // Remove password from response
+    const staffResponse = newStaff.toObject();
+    delete staffResponse.password;
+
+    res.status(201).json({
+      success: true,
+      message: 'Staff member created successfully',
+      data: {
+        user: staffResponse,
+      },
+    });
+  } catch (error) {
+    console.error('Staff registration error:', error);
+    
+    // Handle duplicate key error
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: 'User with this email already exists',
+      });
+    }
+
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors,
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Staff registration failed',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
   getMe,
+  registerStaff,
 };
 

@@ -20,6 +20,15 @@ import {
   CardContent,
   CircularProgress,
   Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -29,6 +38,7 @@ import {
   LocalHospital as HospitalIcon,
   Today as TodayIcon,
   Assignment as PrescriptionIcon,
+  PersonAdd as PersonAddIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import {
@@ -67,6 +77,15 @@ const Dashboard = () => {
     patientsLast7Days: [],
     recentVitals: [],
   });
+  const [staffDialogOpen, setStaffDialogOpen] = useState(false);
+  const [staffForm, setStaffForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    role: '',
+  });
+  const [staffLoading, setStaffLoading] = useState(false);
 
   useEffect(() => {
     fetchDashboardStats();
@@ -99,6 +118,72 @@ const Dashboard = () => {
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const tenantId = localStorage.getItem('tenantId') || 'Unknown Hospital';
+  const isHospitalAdmin = user.role === 'HOSPITAL_ADMIN';
+
+  const handleStaffDialogOpen = () => {
+    setStaffDialogOpen(true);
+  };
+
+  const handleStaffDialogClose = () => {
+    setStaffDialogOpen(false);
+    setStaffForm({
+      firstName: '',
+      lastName: '',
+      email: '',
+      password: '',
+      role: '',
+    });
+  };
+
+  const handleStaffFormChange = (e) => {
+    setStaffForm({
+      ...staffForm,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleStaffSubmit = async () => {
+    try {
+      // Validate form
+      if (!staffForm.firstName || !staffForm.lastName || !staffForm.email || !staffForm.password || !staffForm.role) {
+        toast.error('All fields are required');
+        return;
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(staffForm.email)) {
+        toast.error('Please enter a valid email address');
+        return;
+      }
+
+      // Validate password length
+      if (staffForm.password.length < 6) {
+        toast.error('Password must be at least 6 characters long');
+        return;
+      }
+
+      setStaffLoading(true);
+
+      const response = await api.post('/auth/register-staff', {
+        firstName: staffForm.firstName,
+        lastName: staffForm.lastName,
+        email: staffForm.email,
+        password: staffForm.password,
+        role: staffForm.role,
+      });
+
+      if (response.data.success) {
+        toast.success('Staff member created successfully');
+        handleStaffDialogClose();
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to create staff member';
+      toast.error(errorMessage);
+    } finally {
+      setStaffLoading(false);
+    }
+  };
 
   const drawer = (
     <Box>
@@ -211,12 +296,29 @@ const Dashboard = () => {
       >
         <Toolbar />
         <Container maxWidth="lg">
-          <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 1, fontWeight: 600 }}>
-            Dashboard
-          </Typography>
-          <Typography variant="body1" sx={{ color: '#666', mb: 4 }}>
-            Welcome, {user.firstName} {user.lastName} ({user.role}) • {tenantId}
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Box>
+              <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 1, fontWeight: 600 }}>
+                Dashboard
+              </Typography>
+              <Typography variant="body1" sx={{ color: '#666' }}>
+                Welcome, {user.firstName} {user.lastName} ({user.role}) • {tenantId}
+              </Typography>
+            </Box>
+            {isHospitalAdmin && (
+              <Button
+                variant="contained"
+                startIcon={<PersonAddIcon />}
+                onClick={handleStaffDialogOpen}
+                sx={{
+                  backgroundColor: '#1976d2',
+                  '&:hover': { backgroundColor: '#1565c0' },
+                }}
+              >
+                Add Staff Member
+              </Button>
+            )}
+          </Box>
 
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
@@ -404,6 +506,92 @@ const Dashboard = () => {
             </>
           )}
         </Container>
+
+        {/* Add Staff Member Dialog */}
+        <Dialog
+          open={staffDialogOpen}
+          onClose={handleStaffDialogClose}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Add Staff Member</DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="First Name"
+                  name="firstName"
+                  value={staffForm.firstName}
+                  onChange={handleStaffFormChange}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Last Name"
+                  name="lastName"
+                  value={staffForm.lastName}
+                  onChange={handleStaffFormChange}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Email"
+                  name="email"
+                  type="email"
+                  value={staffForm.email}
+                  onChange={handleStaffFormChange}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Password"
+                  name="password"
+                  type="password"
+                  value={staffForm.password}
+                  onChange={handleStaffFormChange}
+                  required
+                  helperText="Minimum 6 characters"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControl fullWidth required>
+                  <InputLabel>Role</InputLabel>
+                  <Select
+                    name="role"
+                    value={staffForm.role}
+                    label="Role"
+                    onChange={handleStaffFormChange}
+                  >
+                    <MenuItem value="DOCTOR">Doctor</MenuItem>
+                    <MenuItem value="NURSE">Nurse</MenuItem>
+                    <MenuItem value="PHARMACIST">Pharmacist</MenuItem>
+                    <MenuItem value="LAB_TECHNICIAN">Lab Technician</MenuItem>
+                    <MenuItem value="RECEPTIONIST">Receptionist</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleStaffDialogClose} disabled={staffLoading}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleStaffSubmit}
+              variant="contained"
+              disabled={staffLoading}
+            >
+              {staffLoading ? <CircularProgress size={24} /> : 'Create Staff Member'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </Box>
   );

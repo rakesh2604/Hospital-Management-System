@@ -16,3 +16,10 @@ body {
   min-height: 100vh;
 }
 
+/* Fix for MUI passive event listener warning */
+.MuiDialog-container,
+.MuiTableContainer-root,
+.MuiDrawer-paper {
+  touch-action: pan-y;
+}
+
