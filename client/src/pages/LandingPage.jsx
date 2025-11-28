@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Container,
   Typography,
@@ -15,24 +16,26 @@ import {
   LocalPharmacy as PharmacyIcon,
   MonitorHeart as VitalsIcon,
 } from '@mui/icons-material';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const features = [
     {
-      title: 'Patient Records',
-      description: 'Manage patient information, medical history, and records securely.',
+      titleKey: 'patient_records',
+      descriptionKey: 'patient_records_desc',
       icon: <PeopleIcon sx={{ fontSize: 48, color: '#1976d2' }} />,
     },
     {
-      title: 'Vitals Tracking',
-      description: 'Record and monitor patient vital signs in real-time.',
+      titleKey: 'vitals_tracking',
+      descriptionKey: 'vitals_tracking_desc',
       icon: <VitalsIcon sx={{ fontSize: 48, color: '#1976d2' }} />,
     },
     {
-      title: 'Pharmacy Management',
-      description: 'Streamline prescription management and medication tracking.',
+      titleKey: 'pharmacy_management',
+      descriptionKey: 'pharmacy_management_desc',
       icon: <PharmacyIcon sx={{ fontSize: 48, color: '#1976d2' }} />,
     },
   ];
@@ -49,6 +52,11 @@ const LandingPage = () => {
         }}
       >
         <Container maxWidth="lg" sx={{ py: 8, flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {/* Language Switcher - Top Right */}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+            <LanguageSwitcher />
+          </Box>
+
           {/* Hero Section */}
           <Box
             sx={{
@@ -68,7 +76,7 @@ const LandingPage = () => {
                 textShadow: '2px 2px 4px rgba(0,0,0,0.2)',
               }}
             >
-              Digitize Your Rural Health Center in Seconds
+              {t('hero_title')}
             </Typography>
             <Typography
               variant="h5"
@@ -79,8 +87,7 @@ const LandingPage = () => {
                 mx: 'auto',
               }}
             >
-              A comprehensive hospital management system designed for rural healthcare facilities.
-              Manage patients, track vitals, and streamline operations all in one place.
+              {t('hero_subtitle')}
             </Typography>
 
             {/* Action Buttons */}
@@ -104,7 +111,7 @@ const LandingPage = () => {
                   transition: 'all 0.3s',
                 }}
               >
-                Login to Existing Hospital
+                {t('login_existing')}
               </Button>
               <Button
                 variant="outlined"
@@ -126,7 +133,7 @@ const LandingPage = () => {
                   transition: 'all 0.3s',
                 }}
               >
-                Register New Hospital
+                {t('register_hospital')}
               </Button>
             </Box>
           </Box>
@@ -143,7 +150,7 @@ const LandingPage = () => {
                 fontWeight: 600,
               }}
             >
-              Key Features
+              {t('key_features')}
             </Typography>
             <Grid container spacing={4}>
               {features.map((feature, index) => (
@@ -172,10 +179,10 @@ const LandingPage = () => {
                           mb: 2,
                         }}
                       >
-                        {feature.title}
+                        {t(feature.titleKey)}
                       </Typography>
                       <Typography variant="body1" color="text.secondary">
-                        {feature.description}
+                        {t(feature.descriptionKey)}
                       </Typography>
                     </CardContent>
                   </Card>

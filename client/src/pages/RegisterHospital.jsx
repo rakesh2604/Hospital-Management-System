@@ -18,7 +18,7 @@ import {
   Divider,
 } from '@mui/material';
 import { toast } from 'react-toastify';
-import axios from 'axios';
+import api from '../api/axios';
 
 const RegisterHospital = () => {
   const navigate = useNavigate();
@@ -49,8 +49,9 @@ const RegisterHospital = () => {
     setLoading(true);
 
     try {
-      // Make direct axios call without tenant header (we're creating a new tenant)
-      const response = await axios.post('http://localhost:5000/api/tenants/register', formData);
+      // Make API call without tenant header (we're creating a new tenant)
+      // The interceptor automatically skips tenant header for this endpoint
+      const response = await api.post('/tenants/register', formData);
 
       if (response.data.success) {
         setRegisteredTenantId(response.data.data.tenantId);
