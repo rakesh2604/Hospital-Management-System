@@ -26,11 +26,16 @@ import {
   Alert,
   IconButton,
   Chip,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Print as PrintIcon,
+  LocalPharmacy as PharmacyIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import { useReactToPrint } from 'react-to-print';
@@ -52,15 +57,19 @@ const PatientDetails = () => {
   // Role-based permissions
   const canRecordVitals = ['NURSE', 'DOCTOR', 'HOSPITAL_ADMIN'].includes(userRole);
   const canWritePrescription = ['DOCTOR', 'HOSPITAL_ADMIN'].includes(userRole);
+  const canAddLabReport = ['LAB_TECHNICIAN', 'HOSPITAL_ADMIN'].includes(userRole);
+  const canDispensePrescription = ['PHARMACIST', 'HOSPITAL_ADMIN'].includes(userRole);
 
   // Patient data
   const [patient, setPatient] = useState(null);
   const [vitals, setVitals] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
+  const [labResults, setLabResults] = useState([]);
 
   // Dialog states
   const [vitalsDialogOpen, setVitalsDialogOpen] = useState(false);
   const [prescriptionDialogOpen, setPrescriptionDialogOpen] = useState(false);
+  const [labDialogOpen, setLabDialogOpen] = useState(false);
   const [selectedPrescription, setSelectedPrescription] = useState(null);
   const printRef = useRef();
 
@@ -77,6 +86,13 @@ const PatientDetails = () => {
   const [prescriptionForm, setPrescriptionForm] = useState({
     diagnosis: '',
     medicines: [{ name: '', dosage: '', frequency: '', duration: '', instructions: '' }],
+  });
+
+  // Lab form
+  const [labForm, setLabForm] = useState({
+    testName: '',
+    result: '',
+    notes: '',
   });
 
   // Calculate age from DOB
@@ -108,10 +124,11 @@ const PatientDetails = () => {
       setLoading(true);
       setError('');
 
-      const [patientRes, vitalsRes, prescriptionsRes] = await Promise.all([
+      const [patientRes, vitalsRes, prescriptionsRes, labRes] = await Promise.all([
         api.get(`/patients/${id}`),
         api.get(`/vitals/patient/${id}`),
         api.get(`/prescriptions/patient/${id}`),
+        api.get(`/lab/patient/${id}`),
       ]);
 
       if (patientRes.data.success) {
@@ -122,6 +139,9 @@ const PatientDetails = () => {
       }
       if (prescriptionsRes.data.success) {
         setPrescriptions(prescriptionsRes.data.data || []);
+      }
+      if (labRes.data.success) {
+        setLabResults(labRes.data.data || []);
       }
     } catch (err) {
       const errorMessage = err.response?.data?.message || 'Failed to fetch patient data';
@@ -228,6 +248,52 @@ const PatientDetails = () => {
     setPrescriptionForm({ ...prescriptionForm, medicines: newMedicines });
   };
 
+  // Handle lab form submission
+  const handleLabSubmit = async () => {
+    try {
+      if (!labForm.testName || !labForm.result) {
+        toast.error('Test name and result are required');
+        return;
+      }
+
+      const response = await api.post('/lab', {
+        patientId: id,
+        testName: labForm.testName,
+        result: labForm.result,
+        notes: labForm.notes || '',
+      });
+
+      if (response.data.success) {
+        toast.success('Lab result recorded successfully');
+        setLabDialogOpen(false);
+        setLabForm({
+          testName: '',
+          result: '',
+          notes: '',
+        });
+        fetchData(); // Refresh lab results
+      }
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Failed to record lab result';
+      toast.error(errorMessage);
+    }
+  };
+
+  // Handle dispense prescription
+  const handleDispensePrescription = async (prescriptionId) => {
+    try {
+      const response = await api.patch(`/prescriptions/${prescriptionId}/dispense`);
+
+      if (response.data.success) {
+        toast.success('Prescription dispensed successfully');
+        fetchData(); // Refresh prescriptions
+      }
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Failed to dispense prescription';
+      toast.error(errorMessage);
+    }
+  };
+
   // Print prescription handler
   const handlePrint = useReactToPrint({
     content: () => printRef.current,
@@ -302,6 +368,7 @@ const PatientDetails = () => {
             <Tab label="Overview" />
             <Tab label="Vitals" />
             <Tab label="Prescriptions" />
+            <Tab label="Lab Reports" />
           </Tabs>
         </Box>
 
@@ -513,6 +580,14 @@ const PatientDetails = () => {
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                           <Typography variant="h6">{prescription.prescriptionId}</Typography>
                           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Chip
+                              label={prescription.status || 'PENDING'}
+                              size="small"
+                              color={prescription.status === 'DISPENSED' ? 'success' : 'warning'}
+                              sx={{
+                                fontWeight: 600,
+                              }}
+                            />
                             <Chip label={formatDate(prescription.createdAt)} size="small" />
                             <IconButton
                               color="primary"
@@ -559,6 +634,25 @@ const PatientDetails = () => {
                         <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
                           Prescribed by: {prescription.doctorId?.firstName} {prescription.doctorId?.lastName}
                         </Typography>
+                        {canDispensePrescription && prescription.status === 'PENDING' && (
+                          <Box sx={{ mt: 2 }}>
+                            <Button
+                              variant="contained"
+                              color="success"
+                              startIcon={<PharmacyIcon />}
+                              onClick={() => handleDispensePrescription(prescription._id)}
+                              fullWidth
+                              sx={{
+                                backgroundColor: '#2e7d32',
+                                '&:hover': {
+                                  backgroundColor: '#1b5e20',
+                                },
+                              }}
+                            >
+                              Dispense Medicines
+                            </Button>
+                          </Box>
+                        )}
                       </CardContent>
                     </Card>
                   </Grid>
@@ -667,6 +761,121 @@ const PatientDetails = () => {
                 <Button onClick={() => setPrescriptionDialogOpen(false)}>Cancel</Button>
                 <Button onClick={handlePrescriptionSubmit} variant="contained">
                   Create Prescription
+                </Button>
+              </DialogActions>
+            </Dialog>
+          </Box>
+        )}
+
+        {/* Tab 4: Lab Reports */}
+        {tabValue === 3 && (
+          <Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">Lab Reports</Typography>
+              {canAddLabReport && (
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => setLabDialogOpen(true)}
+                  sx={{
+                    backgroundColor: '#1976d2',
+                    '&:hover': { backgroundColor: '#1565c0' },
+                  }}
+                >
+                  Add Report
+                </Button>
+              )}
+            </Box>
+
+            {labResults.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+                No lab reports found.
+              </Typography>
+            ) : (
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Date</TableCell>
+                      <TableCell>Test Name</TableCell>
+                      <TableCell>Result</TableCell>
+                      <TableCell>Notes</TableCell>
+                      <TableCell>Recorded By</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {labResults.map((lab) => (
+                      <TableRow key={lab._id}>
+                        <TableCell>{formatDate(lab.createdAt)}</TableCell>
+                        <TableCell>
+                          <Chip label={lab.testName} size="small" color="primary" />
+                        </TableCell>
+                        <TableCell>{lab.result}</TableCell>
+                        <TableCell>{lab.notes || 'N/A'}</TableCell>
+                        <TableCell>
+                          {lab.recordedBy?.firstName} {lab.recordedBy?.lastName}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+
+            {/* Lab Report Dialog */}
+            <Dialog
+              open={labDialogOpen}
+              onClose={() => setLabDialogOpen(false)}
+              maxWidth="sm"
+              fullWidth
+            >
+              <DialogTitle>Add Lab Report</DialogTitle>
+              <DialogContent>
+                <Grid container spacing={2} sx={{ mt: 1 }}>
+                  <Grid item xs={12}>
+                    <FormControl fullWidth required>
+                      <InputLabel>Test Name</InputLabel>
+                      <Select
+                        value={labForm.testName}
+                        label="Test Name"
+                        onChange={(e) => setLabForm({ ...labForm, testName: e.target.value })}
+                      >
+                        <MenuItem value="Blood Test">Blood Test</MenuItem>
+                        <MenuItem value="Urine Test">Urine Test</MenuItem>
+                        <MenuItem value="Malaria">Malaria</MenuItem>
+                        <MenuItem value="X-Ray">X-Ray</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Result"
+                      value={labForm.result}
+                      onChange={(e) => setLabForm({ ...labForm, result: e.target.value })}
+                      required
+                      multiline
+                      rows={3}
+                      placeholder="Enter test results..."
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Notes (Optional)"
+                      value={labForm.notes}
+                      onChange={(e) => setLabForm({ ...labForm, notes: e.target.value })}
+                      multiline
+                      rows={2}
+                      placeholder="Additional notes or observations..."
+                    />
+                  </Grid>
+                </Grid>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setLabDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleLabSubmit} variant="contained">
+                  Save Report
                 </Button>
               </DialogActions>
             </Dialog>

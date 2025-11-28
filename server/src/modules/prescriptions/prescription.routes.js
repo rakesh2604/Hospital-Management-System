@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createPrescription, getPrescriptionsByPatient } = require('./prescription.controller');
+const { createPrescription, getPrescriptionsByPatient, dispensePrescription } = require('./prescription.controller');
 const { protect, authorize } = require('../../middleware/auth');
 const resolveTenant = require('../../middleware/tenantResolver');
 
@@ -17,6 +17,13 @@ router.post(
 
 // GET /patient/:patientId - Get prescription history (Protected, Roles: ALL)
 router.get('/patient/:patientId', getPrescriptionsByPatient);
+
+// PATCH /:id/dispense - Dispense prescription (Protected, Role: PHARMACIST, HOSPITAL_ADMIN)
+router.patch(
+  '/:id/dispense',
+  authorize('PHARMACIST', 'HOSPITAL_ADMIN', 'SUPER_ADMIN'),
+  dispensePrescription
+);
 
 module.exports = router;
 

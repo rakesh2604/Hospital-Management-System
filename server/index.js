@@ -13,6 +13,7 @@ const vitalRoutes = require('./src/modules/vitals/vital.routes');
 const prescriptionRoutes = require('./src/modules/prescriptions/prescription.routes');
 const tenantRoutes = require('./src/modules/tenants/tenant.routes');
 const statsRoutes = require('./src/modules/stats/stats.routes');
+const labRoutes = require('./src/modules/lab/lab.routes');
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use('/api/vitals', vitalRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/tenants', tenantRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/lab', labRoutes);
 
 // 4. Global Error Handler
 app.use((err, req, res, next) => {

@@ -176,8 +176,77 @@ const getPrescriptionsByPatient = async (req, res) => {
   }
 };
 
+/**
+ * Dispense prescription (update status to DISPENSED)
+ */
+const dispensePrescription = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tenantId = req.tenantId;
+
+    if (!tenantId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tenant ID is required',
+      });
+    }
+
+    // Get the Prescription model from the CURRENT tenant connection
+    const Prescription = req.tenantDB.model('Prescription', PrescriptionSchema);
+
+    // Find prescription by ID and tenantId
+    const prescription = await Prescription.findOne({ _id: id, tenantId });
+
+    if (!prescription) {
+      return res.status(404).json({
+        success: false,
+        message: 'Prescription not found',
+      });
+    }
+
+    // Check if already dispensed
+    if (prescription.status === 'DISPENSED') {
+      return res.status(400).json({
+        success: false,
+        message: 'Prescription is already dispensed',
+      });
+    }
+
+    // Update status to DISPENSED
+    prescription.status = 'DISPENSED';
+    await prescription.save();
+
+    // Populate for response
+    await prescription.populate('doctorId', 'firstName lastName role');
+    await prescription.populate('patientId', 'firstName lastName patientId');
+
+    res.status(200).json({
+      success: true,
+      message: 'Prescription dispensed successfully',
+      data: prescription,
+    });
+  } catch (error) {
+    console.error('Dispense prescription error:', error);
+
+    // Handle invalid ObjectId
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid prescription ID format',
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to dispense prescription',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createPrescription,
   getPrescriptionsByPatient,
+  dispensePrescription,
 };
 

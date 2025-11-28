@@ -58,6 +58,12 @@ const PrescriptionSchema = new mongoose.Schema({
     required: [true, 'Tenant ID is required'],
     index: true,
   },
+  status: {
+    type: String,
+    enum: ['PENDING', 'DISPENSED'],
+    default: 'PENDING',
+    index: true,
+  },
 }, {
   timestamps: true,
 });
