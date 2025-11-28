@@ -6,7 +6,7 @@ const LabSchema = require('./lab.model');
 const createLabResult = async (req, res) => {
   try {
     // Validate required fields
-    const { patientId, testName, result, notes } = req.body;
+    const { patientId, testName, result, notes, fileData, fileType, fileName } = req.body;
 
     if (!patientId || !testName || !result) {
       return res.status(400).json({
@@ -48,6 +48,9 @@ const createLabResult = async (req, res) => {
       testName,
       result,
       notes: notes || '',
+      fileData: fileData || null,
+      fileType: fileType || null,
+      fileName: fileName || null,
       tenantId,
     });
 

@@ -8,10 +8,10 @@ const resolveTenant = require('../../middleware/tenantResolver');
 router.use(resolveTenant);
 router.use(protect);
 
-// POST / - Create lab result (Protected, Role: LAB_TECHNICIAN, HOSPITAL_ADMIN)
+// POST / - Create lab result (Protected, Role: LAB_TECHNICIAN, DOCTOR, HOSPITAL_ADMIN)
 router.post(
   '/',
-  authorize('LAB_TECHNICIAN', 'HOSPITAL_ADMIN', 'SUPER_ADMIN'),
+  authorize('LAB_TECHNICIAN', 'DOCTOR', 'HOSPITAL_ADMIN', 'SUPER_ADMIN'),
   createLabResult
 );
 

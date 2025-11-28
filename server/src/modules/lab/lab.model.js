@@ -27,6 +27,18 @@ const LabSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  fileData: {
+    type: String,
+    // Base64 encoded file data
+  },
+  fileType: {
+    type: String,
+    // MIME type: 'application/pdf', 'image/jpeg', 'image/png', etc.
+  },
+  fileName: {
+    type: String,
+    trim: true,
+  },
   tenantId: {
     type: String,
     required: [true, 'Tenant ID is required'],

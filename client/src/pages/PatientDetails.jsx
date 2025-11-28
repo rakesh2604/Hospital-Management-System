@@ -30,12 +30,17 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Input,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Print as PrintIcon,
   LocalPharmacy as PharmacyIcon,
+  Download as DownloadIcon,
+  Visibility as VisibilityIcon,
+  PictureAsPdf as PdfIcon,
+  Image as ImageIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import { useReactToPrint } from 'react-to-print';
@@ -93,6 +98,8 @@ const PatientDetails = () => {
     testName: '',
     result: '',
     notes: '',
+    file: null,
+    fileName: '',
   });
 
   // Calculate age from DOB
@@ -248,6 +255,44 @@ const PatientDetails = () => {
     setPrescriptionForm({ ...prescriptionForm, medicines: newMedicines });
   };
 
+  // Handle file upload and convert to Base64
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Check file size (2MB max)
+    const maxSize = 2 * 1024 * 1024; // 2MB in bytes
+    if (file.size > maxSize) {
+      toast.error('File size must be less than 2MB');
+      e.target.value = ''; // Clear the input
+      return;
+    }
+
+    // Check file type (PDF or Image)
+    const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Only PDF and image files are allowed');
+      e.target.value = ''; // Clear the input
+      return;
+    }
+
+    // Convert file to Base64
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64String = reader.result.split(',')[1]; // Remove data:type;base64, prefix
+      setLabForm({
+        ...labForm,
+        file: base64String,
+        fileName: file.name,
+        fileType: file.type,
+      });
+    };
+    reader.onerror = () => {
+      toast.error('Error reading file');
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Handle lab form submission
   const handleLabSubmit = async () => {
     try {
@@ -261,6 +306,9 @@ const PatientDetails = () => {
         testName: labForm.testName,
         result: labForm.result,
         notes: labForm.notes || '',
+        fileData: labForm.file || null,
+        fileType: labForm.fileType || null,
+        fileName: labForm.fileName || null,
       });
 
       if (response.data.success) {
@@ -270,6 +318,9 @@ const PatientDetails = () => {
           testName: '',
           result: '',
           notes: '',
+          file: null,
+          fileName: '',
+          fileType: '',
         });
         fetchData(); // Refresh lab results
       }
@@ -277,6 +328,52 @@ const PatientDetails = () => {
       const errorMessage = err.response?.data?.message || 'Failed to record lab result';
       toast.error(errorMessage);
     }
+  };
+
+  // Handle file download/view
+  const handleViewFile = (lab, download = false) => {
+    if (!lab.fileData) {
+      toast.error('No file attached to this report');
+      return;
+    }
+
+    // Create blob from Base64
+    const byteCharacters = atob(lab.fileData);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: lab.fileType });
+
+    if (download) {
+      // Trigger download
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = lab.fileName || `lab-report-${lab._id}.${lab.fileType.includes('pdf') ? 'pdf' : 'jpg'}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success('File downloaded successfully');
+    } else {
+      // Open in new tab for viewing
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      // Clean up URL after a delay
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    }
+  };
+
+  // Get file icon based on type
+  const getFileIcon = (fileType) => {
+    if (fileType?.includes('pdf')) {
+      return <PdfIcon />;
+    } else if (fileType?.includes('image')) {
+      return <ImageIcon />;
+    }
+    return <VisibilityIcon />;
   };
 
   // Handle dispense prescription
@@ -462,7 +559,7 @@ const PatientDetails = () => {
                       <TableCell>Temperature</TableCell>
                       <TableCell>SpO2 (%)</TableCell>
                       <TableCell>Weight (kg)</TableCell>
-                      <TableCell>Recorded By</TableCell>
+                      <TableCell>Measured By</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -475,7 +572,9 @@ const PatientDetails = () => {
                         <TableCell>{vital.spO2 || 'N/A'}</TableCell>
                         <TableCell>{vital.weight || 'N/A'}</TableCell>
                         <TableCell>
-                          {vital.recordedBy?.firstName} {vital.recordedBy?.lastName}
+                          <Typography variant="body2" color="text.secondary">
+                            {vital.recordedBy?.firstName} {vital.recordedBy?.lastName} ({vital.recordedBy?.role})
+                          </Typography>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -801,6 +900,7 @@ const PatientDetails = () => {
                       <TableCell>Result</TableCell>
                       <TableCell>Notes</TableCell>
                       <TableCell>Recorded By</TableCell>
+                      <TableCell>File</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -814,6 +914,32 @@ const PatientDetails = () => {
                         <TableCell>{lab.notes || 'N/A'}</TableCell>
                         <TableCell>
                           {lab.recordedBy?.firstName} {lab.recordedBy?.lastName}
+                        </TableCell>
+                        <TableCell>
+                          {lab.fileData ? (
+                            <Box sx={{ display: 'flex', gap: 0.5 }}>
+                              <IconButton
+                                color="primary"
+                                onClick={() => handleViewFile(lab, false)}
+                                size="small"
+                                title={`View ${lab.fileName || 'file'}`}
+                              >
+                                {getFileIcon(lab.fileType)}
+                              </IconButton>
+                              <IconButton
+                                color="secondary"
+                                onClick={() => handleViewFile(lab, true)}
+                                size="small"
+                                title={`Download ${lab.fileName || 'file'}`}
+                              >
+                                <DownloadIcon />
+                              </IconButton>
+                            </Box>
+                          ) : (
+                            <Typography variant="caption" color="text.secondary">
+                              No file
+                            </Typography>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -870,10 +996,44 @@ const PatientDetails = () => {
                       placeholder="Additional notes or observations..."
                     />
                   </Grid>
+                  <Grid item xs={12}>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        Upload File (PDF/Image - Max 2MB)
+                      </Typography>
+                      <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={handleFileChange}
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          border: '1px solid #ccc',
+                          borderRadius: '4px',
+                          fontSize: '14px',
+                        }}
+                      />
+                      {labForm.fileName && (
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                          Selected: {labForm.fileName}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Grid>
                 </Grid>
               </DialogContent>
               <DialogActions>
-                <Button onClick={() => setLabDialogOpen(false)}>Cancel</Button>
+                <Button onClick={() => {
+                  setLabDialogOpen(false);
+                  setLabForm({
+                    testName: '',
+                    result: '',
+                    notes: '',
+                    file: null,
+                    fileName: '',
+                    fileType: '',
+                  });
+                }}>Cancel</Button>
                 <Button onClick={handleLabSubmit} variant="contained">
                   Save Report
                 </Button>
