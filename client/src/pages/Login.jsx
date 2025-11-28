@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Container,
   Card,
@@ -15,6 +15,7 @@ import api from '../api/axios';
 
 const Login = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [formData, setFormData] = useState({
     tenantId: '',
     email: '',
@@ -22,6 +23,17 @@ const Login = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Pre-fill tenantId from URL params
+  useEffect(() => {
+    const tenantIdFromUrl = searchParams.get('tenantId');
+    if (tenantIdFromUrl) {
+      setFormData((prev) => ({
+        ...prev,
+        tenantId: tenantIdFromUrl,
+      }));
+    }
+  }, [searchParams]);
 
   const handleChange = (e) => {
     setFormData({
@@ -166,6 +178,16 @@ const Login = () => {
               >
                 {loading ? 'Logging in...' : 'Login'}
               </Button>
+
+              <Box sx={{ mt: 2, textAlign: 'center' }}>
+                <Button
+                  variant="text"
+                  onClick={() => navigate('/')}
+                  sx={{ color: '#1976d2' }}
+                >
+                  Back to Home
+                </Button>
+              </Box>
             </form>
           </CardContent>
         </Card>
